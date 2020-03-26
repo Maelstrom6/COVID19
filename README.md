@@ -1,11 +1,11 @@
-# COVID19
+# COVID-19 Predictions
 
 Some multi-stage discrete SEIR modelling of the COVID-19 disease.
 
 # The model
 
 This project tries to model the COVID population spread using an n-step discrete Markov SEIR model.
-I assume from here on you will have read at least the Wikipedia page in the links below.
+I assume from here on you will have read some the [Wikipedia page](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology) or watched [Numberphile's video](https://www.youtube.com/watch?v=k6nLfCbAzgo).
 Consider there are 4 compartments: S for susceptible, E for exposed, I for infected and R for recovered.
 
 - S is the proportion (or number) of people who have not contracted the disease but are still able to catch it.
@@ -104,7 +104,7 @@ Beta is the proportion of newly exposed per proportion of infected per proportio
 Beta was said to be a proportion of alpha for simplicity and to avoid some extreme results for both beta and alpha.
 
 Estimation was done on a per country basis. There was a parametrisation of alpha and beta to be a Weibull function scaled 
-by some constant. The parameters for the Weibull and the constant were then estimated via minimising the MSE. 
+by some constant and then another positive constant is added. The parameters for the Weibull and the constant were then estimated via minimising the MSE. 
 The MSE is calculated by taking the model's predicted number of infected, subtracting that from the observed infected, 
 squaring everything and summing over each time t. The minimising was done via the Nelder-Mead method.
 
