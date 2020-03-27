@@ -1,0 +1,5 @@
+Each day go to https://www.worldometers.info/coronavirus/
+Copy paste the table from yesterday to an excel spreadhseet
+Find and replace ',' with ''
+Copy paste heading from previous days
+Save as DayMonth.csv
