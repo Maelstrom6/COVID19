@@ -1,39 +1,16 @@
 """
-This file is used to estimate alpha and beta in various models based on observed data.
+This is the most common class to use.
+This should be the first place you come to in order to see how to use it.
 """
 
 from Models import *
-from scipy.optimize import minimize
-import math
 import matplotlib.pyplot as plt
 
 params = model_SA()
-params.offset = 0
+# See some of the params attributes and change a few if you want to.
+# The description of each parameter are in the comments of model_SA()
+# params.offset = 3
 I_tot_observed, R_tot_observed = get_observed_I_and_R(params.country, params.is_country)
-
-
-# Define the function that we want to minimise
-# Note numpy will point out some warnings while minimising f(x)
-def f(x):
-    a, b, c, d, e, f = x
-    params.alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
-                             abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e)) #+ abs(g)
-    params.beta = lambda t: 0.2 * params.alpha(t)
-    return get_mse(params, I_tot_observed[0], R_tot_observed[0], I_tot_observed)
-
-
-# Set initial guess and minimise f(x)
-# If you want to lower the tolerance for a higher accuracy, you can, but with so many parameters,
-# I'm not sure if it will make much of a difference to the quality of prediction
-x0 = [20, 3, 10, 20, 1.1, 10]
-x_opt = minimize(f, x0, method='Nelder-Mead', tol=0.01).x
-print(x_opt)
-
-# Get optimised parameters and apply them
-a, b, c, d, e, f = x_opt
-params.alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
-                         abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e)) #+ abs(g)
-params.beta = lambda t: 0.2 * params.alpha(t)
 
 max_T = 100
 T = np.arange(0, max_T)
@@ -52,7 +29,7 @@ plt.legend()
 # plt.savefig("SE"+str(m)+"I"+str(n)+"R.png")
 plt.show()
 
-# log scale
+# log scale plot
 plt.plot(T - params.offset, np.log(S + 1), color="blue", label="Susceptible")
 plt.plot(T - params.offset, np.log(E_tot + 1), color="orange", label="Exposed")
 plt.plot(T - params.offset, np.log(I_tot + 1), color="red", label="Cumulative Infected")

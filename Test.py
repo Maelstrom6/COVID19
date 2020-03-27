@@ -1,7 +1,8 @@
-import pandas as pd
-from pandas.io.json import json_normalize
+"""
+Test class. I'm too lazy to add it to the .gitignore
+"""
 
-json_normalize()
+from Models import *
 
-#df = pd.read_json("https://pomber.github.io/covid19/timeseries.json")
-print(df)
+get_observed_I_and_R("Italy")
+

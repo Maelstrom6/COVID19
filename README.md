@@ -135,6 +135,14 @@ https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3182455/
 https://www.researchgate.net/publication/334695153_Complete_maximum_likelihood_estimation_for_SEIR_epidemic_models_theoretical_development
 
+A possibly better model by actual professionals (McKibbin and Fernando):
+
+https://www.brookings.edu/wp-content/uploads/2020/03/20200302_COVID19.pdf
+
+I'm not too sure on their assumptions because they stated that in the case of a global pandemic, 
+South Korea will have an annual mortality of a minimum of 61 000. 
+This, I doubt, will be the case for them considering they currently have about 10 000 confirmed cases.
+
 # Sources
 https://www.worldometers.info/coronavirus/coronavirus-incubation-period/
 https://www.worldometers.info/coronavirus/coronavirus-symptoms/

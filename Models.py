@@ -1,6 +1,13 @@
+"""
+This class contains all parameters for all models for different countries.
+It contains methods to obtain observed data.
+It also contains the common methods to use the model itself.
+"""
+
 import numpy as np
 import pandas as pd
 import math
+from Communication import Database
 
 np.set_printoptions(suppress=True)
 
@@ -50,81 +57,42 @@ def binomial_dist(n, p):
     return np.array(dist)
 
 
-def get_observed_I_and_R(country, is_country=True):
+def get_observed_I_and_R(country: str, is_country: bool = True):
     """
     Gets the data for the number of confirmed cases and the number of recovered.
+
     :param country: The country or province for which to get the cases
     :param is_country: Whether the country variable is for a country or for a province
     :return: A tuple of 2 arrays: one for cumulative infected and one for cumulative recovered
     """
-    # TODO: Change the sources of data to newer sources
+    country = country.replace("'", "")
+    database = Database("Data\\CombinedData.accdb")
     if is_country:
         # Source: https://data.humdata.org/dataset/novel-coronavirus-2019-ncov-cases
-        data = pd.read_csv("Data\\"
-                           "time_series-ncov-Confirmed.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        I_tot_observed = data[data.CountryRegion == country]
-        I_tot_observed = pd.to_numeric(I_tot_observed.sort_values("Date", ascending=True)["Value"]).to_numpy()
-
-        # Read from dead and recovered and combine them
-        data = pd.read_csv("Data\\"
-                           "time_series-ncov-Recovered.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        R_tot_observed = data[data.CountryRegion == country]
-        R_tot_observed = pd.to_numeric(R_tot_observed.sort_values("Date", ascending=True)["Value"]).to_numpy()
-        data = pd.read_csv("Data\\"
-                           "time_series-ncov-Deaths.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        deaths_tot = data[data.CountryRegion == country]
-        deaths_tot = pd.to_numeric(deaths_tot.sort_values("Date", ascending=True)["Value"]).to_numpy()
-        R_tot_observed = R_tot_observed + deaths_tot
+        # And https://www.worldometers.info/coronavirus/
+        data_dict = database.select("SELECT IRTbl.Country, IRTbl.Day, Sum(IRTbl.Infected) AS SumOfInfected, "
+                                    "Sum([IRTbl].[Recovered]+[IRTbl].[Dead]) AS SumOfRecoveredAndDead\n"
+                                    "FROM IRTbl\n"
+                                    "GROUP BY IRTbl.Country, IRTbl.Day\n"
+                                    "HAVING (((IRTbl.Country)='{}') AND ((Sum(IRTbl.Infected))>0))\n"
+                                    "ORDER BY IRTbl.Day;".format(country),
+                                    ["SumOfInfected", "SumOfRecoveredAndDead"])
     else:
-        # Repeat except for 3 small changes
-        data = pd.read_csv("C:\\Users\\Chris\\Documents\\PycharmProjects\\ProjectsToKeepRunning\\COVID\\"
-                           "time_series-ncov-Confirmed.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        I_tot_observed = data[data.ProvinceState == country]
-        I_tot_observed = pd.to_numeric(I_tot_observed.sort_values("Date", ascending=True)["Value"]).to_numpy()
+        print("Warning: Worldometer (the data source since 2020/03/25) does not specify provinces in their data.\n"
+              "         It is best to rather specify a country than a province due to this.")
+        data_dict = database.select("SELECT IRTbl.Province, IRTbl.Day, Sum(IRTbl.Infected) AS SumOfInfected, "
+                                    "Sum([IRTbl].[Recovered]+[IRTbl].[Dead]) AS SumOfRecoveredAndDead\n"
+                                    "FROM IRTbl\n"
+                                    "GROUP BY IRTbl.Province, IRTbl.Day\n"
+                                    "HAVING (((IRTbl.Province)='{}') AND ((Sum([IRTbl].[Infected]))>0))\n"
+                                    "ORDER BY IRTbl.Day;".format(country),
+                                    ["SumOfInfected", "SumOfRecoveredAndDead"])
 
-        # Read from dead and recovered and combine them
-        data = pd.read_csv("C:\\Users\\Chris\\Documents\\PycharmProjects\\ProjectsToKeepRunning\\COVID\\"
-                           "time_series-ncov-Recovered.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        R_tot_observed = data[data.ProvinceState == country]
-        R_tot_observed = pd.to_numeric(R_tot_observed.sort_values("Date", ascending=True)["Value"]).to_numpy()
-        data = pd.read_csv("C:\\Users\\Chris\\Documents\\PycharmProjects\\ProjectsToKeepRunning\\COVID\\"
-                           "time_series-ncov-Deaths.csv")
-        data.columns = data.columns.str.replace('/', '')
-        data = data.iloc[1:, :]
-        deaths_tot = data[data.ProvinceState == country]
-        deaths_tot = pd.to_numeric(deaths_tot.sort_values("Date", ascending=True)["Value"]).to_numpy()
-        R_tot_observed = R_tot_observed + deaths_tot
+    data = pd.DataFrame(data=data_dict)
+    data.columns = data.columns.str.replace('/', '')  # Just a safety precaution
+    I_tot_observed = data["SumOfInfected"].to_numpy()
+    R_tot_observed = data["SumOfRecoveredAndDead"].to_numpy()
 
-    # Remove values until we get a nonzero value
-    while (len(I_tot_observed) > 0) and (I_tot_observed[0] == 0):
-        I_tot_observed = I_tot_observed[1:]
-        R_tot_observed = R_tot_observed[1:]
-
-    # Manual adjustments to account for new cases for SA
-    if country == "South Africa":
-        I_tot_observed = I_tot_observed[:-1]
-        I_tot_observed = np.append(I_tot_observed, 400)
-        I_tot_observed = np.append(I_tot_observed, 554)
-        I_tot_observed = np.append(I_tot_observed, 704)
-    if country == "Hubei":
-        I_tot_observed = np.append(383, I_tot_observed)
-        I_tot_observed = np.append(235, I_tot_observed)
-        I_tot_observed = np.append(216, I_tot_observed)
-        I_tot_observed = np.append(80, I_tot_observed)  # 18 Jan
-        R_tot_observed = np.append(R_tot_observed[0] / 2, R_tot_observed)
-        R_tot_observed = np.append(R_tot_observed[0] / 2, R_tot_observed)
-        R_tot_observed = np.append(R_tot_observed[0] / 2, R_tot_observed)
-        R_tot_observed = np.append(R_tot_observed[0] / 2, R_tot_observed)
     return I_tot_observed, R_tot_observed
 
 
@@ -144,6 +112,7 @@ def model_SA():
     Note that this model can easily become a binomial recover time and exposed time.
     One needs to simply change the transition state matrix so that in each sub state, Ip and Ep are 1.
     Also note the Ip and Ep calculations need to change.
+
     :return: All the parameters as a tuple
     """
     m = 7  # The parameter within the distribution of E
@@ -170,8 +139,6 @@ def model_SA():
     # the average number of susceptible people exposed per day per person infected
     beta = lambda t: 1.5 / (t + 1) if t < lock_down else 0
 
-
-
     # The number of days since patient 0 until the country goes into lock down
 
     country = "South Africa"
@@ -189,6 +156,7 @@ def model_Hubei():
     Since the data does not contain information on patient 0 and the
     epidemic is underway already, the initial state vector must have people
     already in the pipeline.
+
     :return: All the parameters as a tuple
     """
     m = 7  # The parameter within the distribution of E
@@ -200,14 +168,21 @@ def model_Hubei():
     Ep = m / (m + mean_exposed_days)  # The p needed to give the desired expected value
     Ip = n / (n + mean_infectious_days)  # The p needed to give the desired expected value
 
-    offset = 2  # The offset time on the graph between theoretical and observed I
+    offset = 5  # The offset time on the graph between theoretical and observed I
     lock_down = 5 + offset
     # Number of days since patient 0 until the province goes into lock down
 
     # the average number of susceptible people exposed per day per person exposed immediately
-    alpha = lambda t: 1.61 / (0.5 * t + 1) if t < lock_down else 0
+    a, b, c, d, e, f = [102.94127581, 59.02443664, 0.21857432, 11.55142024,  1.06625104, 7.73675499]
+    alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
+                             abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))  # + abs(g)
     # the average number of susceptible people exposed per day per person infected
-    beta = lambda t: 1.5 / (t + 1) if t < lock_down else 0
+    beta = lambda t: 0.2 * alpha(t)
+
+    # the average number of susceptible people exposed per day per person exposed immediately
+    # alpha = lambda t: 1.61 / (0.5 * t + 1) if t < lock_down else 0
+    # the average number of susceptible people exposed per day per person infected
+    # beta = lambda t: 1.5 / (t + 1) if t < lock_down else 0
 
     # This should be 5
     province = "Hubei"
@@ -221,7 +196,6 @@ def model_SouthKorea():
     This is a model for South Korea.
     Due to how much testing they do, it is probably more accurate
     to try match observations to E instead of I.
-    :return:
     """
     m = 4  # The parameter within the distribution of E
     n = 7  # The parameter within the distribution of I
@@ -232,26 +206,33 @@ def model_SouthKorea():
     Ep = m / (m + mean_exposed_days)  # The p needed to give the desired expected value
     Ip = n / (n + mean_infectious_days)  # The p needed to give the desired expected value
 
-    offset = 0  # The offset time on the graph between theoretical and observed I
+    offset = 2  # The offset time on the graph between theoretical and observed I
     lock_down = 28 + offset
     # Number of days since patient 0 until the province goes into lock down
+    # the average number of susceptible people exposed per day per person exposed immediately
+    a, b, c, d, e, f = [3.14391294, 7.8549395, 2.02250233, 29.93859138, 2.42269529, 10.44748158]
+    alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
+                      abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))  # + abs(g)
+    # the average number of susceptible people exposed per day per person infected
+    beta = lambda t: 0.2 * alpha(t)
 
     # the average number of susceptible people exposed per day per person exposed immediately
-    alpha = lambda t: 1.1 / (t + 1) if t < lock_down else 1.7 / (0.9 * (t - 28) + 1)
+    # alpha = lambda t: 1.1 / (t + 1) if t < lock_down else 1.7 / (0.9 * (t - 28) + 1)
     # the average number of susceptible people exposed per day per person infected
-    beta = alpha
+    # beta = alpha
 
     # This should be 5
     country = "Korea, South"
     is_country = True
     N = 51_000_000  # The total number of people in the province
+
+    print("Note for South Korea, since they do so much testing, it is best to match observed cases with Exposed.")
     return Parameters(m, n, Ep, Ip, alpha, beta, offset, country, is_country, N)
 
 
 def model_Italy():
     """
     A model of Italy
-    :return:
     """
     m = 7  # The parameter within the distribution of E
     n = 7  # The parameter within the distribution of I
@@ -267,9 +248,15 @@ def model_Italy():
     # Number of days since patient 0 until the province goes into lock down
 
     # the average number of susceptible people exposed per day per person exposed immediately
-    alpha = lambda t: 1.1 / (t + 1) if t < lock_down else 1.7 / (0.9 * (t - 28) + 1)
+    a, b, c, d, e, f = [20.90247103, 1.45905646, 9.1360014, 38.84609153, 2.16521914, 8.27952718]
+    alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
+                      abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))  # + abs(g)
     # the average number of susceptible people exposed per day per person infected
-    beta = alpha
+    beta = lambda t: 0.2 * alpha(t)
+    # the average number of susceptible people exposed per day per person exposed immediately
+    # alpha = lambda t: 1.1 / (t + 1) if t < lock_down else 1.7 / (0.9 * (t - 28) + 1)
+    # the average number of susceptible people exposed per day per person infected
+    # beta = alpha
 
     # This should be 5
     country = "Italy"
@@ -281,6 +268,7 @@ def model_Italy():
 def create_transition_matrix(m, n, Ep, Ip):
     """
     Sets up the initial transition matrix.
+
     :param m: See model_1 comments
     :param n: See model_1 comments
     :param Ep: See model_1 comments
@@ -305,6 +293,7 @@ def __create_transition_matrix_binomial(m, n, Ep, Ip):
     """
     Sets up the initial transition matrix under the binomial assumption.
     This method is not advised.
+
     :param m: See model_1 comments
     :param n: See model_1 comments
     :param Ep: See model_1 comments
@@ -326,6 +315,7 @@ def __create_transition_matrix_binomial(m, n, Ep, Ip):
 def create_initial_state_vector(m, n, N, N0, NR):
     """
     Creates the initial state vector for the system.
+
     :param NR: Number of people who have recovered
     :param m: See model_1 comments
     :param n: See model_1 comments
@@ -344,6 +334,7 @@ def create_initial_state_vector(m, n, N, N0, NR):
 def get_modelled_time_series(params: Parameters, N0, NR, max_T):
     """
     Runs the model using the model parameters
+
     :param max_T: The number of time steps (up to an excluding) for the model
     :param params: The model parameters
     :param N0: The number of "patient 0's" at time 0
@@ -394,14 +385,16 @@ def get_modelled_time_series(params: Parameters, N0, NR, max_T):
 
 def get_mse(params: Parameters, N0, NR, I_tot_observed):
     """
-    Calculates the Mean Square Error between the modelled data and the observed data
+    Calculates the Mean Square Error between the modelled data and the observed data.
+    Note for South Korea this must change. All instances of I_tot must change to E_tot.
+
     :param params: The model parameters
     :param N0: The number of "patient 0's" at time 0
     :param NR: The number of already recovered at time 0
     :param I_tot_observed: The observed total number in the infectious state
     :return: The MSE
     """
-    _, _, _, _, I_tot, _ = get_modelled_time_series(params, N0, NR, len(I_tot_observed)+params.offset)
+    _, _, _, _, I_tot, E_tot = get_modelled_time_series(params, N0, NR, len(I_tot_observed)+params.offset)
     I_tot = I_tot[params.offset:]
     mse = np.sum((I_tot - I_tot_observed) ** 2)/len(I_tot_observed)
     # Note for South Korea, by the number of tests that they are doing,
