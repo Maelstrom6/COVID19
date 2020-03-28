@@ -344,7 +344,7 @@ def create_initial_state_vector(m, n, N, N0, NR):
     return pt
 
 
-def get_modelled_time_series(params: Parameters, N0, NR, max_T, return_R_0 = False):
+def get_modelled_time_series(params: Parameters, N0, NR, max_T, return_R_0=False):
     """
     Runs the model using the model parameters
 
@@ -382,7 +382,7 @@ def get_modelled_time_series(params: Parameters, N0, NR, max_T, return_R_0 = Fal
 
         # Estimate R_0 using an arbitrary alpha and beta
         # Warning: this slows down the program drastically due to sums in multiple loops
-        # This is by far the biggest time consuming process in the calculation
+        # This is by far the most time consuming process in the calculation
         if return_R_0:
             ET_E = round(m * (1 - Ep) / Ep)  # E[T_E]
             total = 0

@@ -27,7 +27,7 @@ yagmail, twilio, keyring, json, smtplib, email, telepot, praw
 
 This project tries to model the COVID population spread using an n-step discrete Markov SEIR model.
 I assume from here on you will have read some the [Wikipedia page](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology) or watched [Numberphile's video](https://www.youtube.com/watch?v=k6nLfCbAzgo).
-Consider there are 4 compartments: S for susceptible, E for exposed, I for infected and R for recovered.
+Consider 4 compartments: S for susceptible, E for exposed, I for infected and R for recovered.
 
 - S is the proportion (or number) of people who have not contracted the disease but are still able to catch it.
 - E is the proportion (or number) of people who have contracted the disease and can infect others but are not showing any symptoms.
@@ -94,7 +94,7 @@ If we then have a "slide" along the main diagonal of 1-Ep and Ep along the upper
 we will have that the time spent in the E superstate (T<sub>E</sub>) follows a Negative Binomial distribution that counts 
 the number of trials. The argument is similar for the I superstate (T<sub>I</sub>). This is not desirable since this means the 
 minimum number of days spent in E is m. We want a minimum of 0 days. To correct this, say for E, the row above the 
-first substate in E must contain a Binomial PMF with parameters m and Ep. For example where ```C = (E\*α+I\*β)``` we have:
+first substate in E must contain a Binomial PMF with parameters m and Ep. For example where ```C = (E*α+I*β)``` we have:
 ```
        [1-C  C(1-Ep)^3  3CEp(1-Ep)^2  3CEp^2(1-Ep)  CEp^3       0            0     ] <- S
        [0    1-Ep       Ep            0             0           0            0     ] <- E substate 1
@@ -178,6 +178,10 @@ Here are some links to get started on the model.
 - https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
 - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3182455/
 - https://www.researchgate.net/publication/334695153_Complete_maximum_likelihood_estimation_for_SEIR_epidemic_models_theoretical_development
+
+Here is a professional article about R<sub>0</sub>:
+
+- https://www.ijidonline.com/article/S1201-9712(20)30091-6/fulltext
 
 A possibly better model by actual professionals (McKibbin and Fernando):
 
