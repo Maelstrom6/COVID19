@@ -23,6 +23,7 @@ class Parameters:
     A single class to store all model parameters.
     See model_1 comments for information on these parameters
     """
+
     def __init__(self, m, n, Ep, Ip, alpha, beta, offset, country, is_country, N):
         self.m = m
         self.n = n
@@ -42,6 +43,7 @@ class Parameters:
         return self.m, self.n, self.Ep, self.Ip, self.alpha, self.beta, self.offset, \
                self.country, self.is_country, self.N
 
+
 def choose(n, r):
     return (math.factorial(n)) / math.factorial(r) / math.factorial(n - r)
 
@@ -54,6 +56,17 @@ def binomial_dist(n, p):
     dist = []
     for x in range(n + 1):
         dist.append(binomial(x, n, p))
+    return np.array(dist)
+
+
+def neg_bin(x, k, p):
+    return choose(x + k - 1, k - 1) * p ** k * (1 - p) ** x
+
+
+def neg_bin_dist(k, p, length):
+    dist = []
+    for x in range(length):
+        dist.append(neg_bin(x, k, p))
     return np.array(dist)
 
 
@@ -173,9 +186,9 @@ def model_Hubei():
     # Number of days since patient 0 until the province goes into lock down
 
     # the average number of susceptible people exposed per day per person exposed immediately
-    a, b, c, d, e, f = [102.94127581, 59.02443664, 0.21857432, 11.55142024,  1.06625104, 7.73675499]
+    a, b, c, d, e, f = [102.94127581, 59.02443664, 0.21857432, 11.55142024, 1.06625104, 7.73675499]
     alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
-                             abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))  # + abs(g)
+                      abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))  # + abs(g)
     # the average number of susceptible people exposed per day per person infected
     beta = lambda t: 0.2 * alpha(t)
 
@@ -331,10 +344,11 @@ def create_initial_state_vector(m, n, N, N0, NR):
     return pt
 
 
-def get_modelled_time_series(params: Parameters, N0, NR, max_T):
+def get_modelled_time_series(params: Parameters, N0, NR, max_T, return_R_0 = False):
     """
     Runs the model using the model parameters
 
+    :param return_R_0: Whether or not the function should also return a numpy array of R_0
     :param max_T: The number of time steps (up to an excluding) for the model
     :param params: The model parameters
     :param N0: The number of "patient 0's" at time 0
@@ -353,6 +367,9 @@ def get_modelled_time_series(params: Parameters, N0, NR, max_T):
     I_tot = []  # The total number of people infected since time 0 up until time t
     E_tot = []
     R = []  # The proportion of people in the recovered stage at time t
+    R_0 = []  # the basic reproduction number
+    length = 25  # the maximum value of the random variable T_E to sum up to
+    # This can't be large since the factorials in the negative binomial distribution get massive
 
     for t in T:
         # Append the current state of the system
@@ -362,6 +379,30 @@ def get_modelled_time_series(params: Parameters, N0, NR, max_T):
         R.append(np.sum(pt[0, m + n + 1]))
         I_tot.append(I[-1] + R[-1])
         E_tot.append(E[-1] + I_tot[-1])
+
+        # Estimate R_0 using an arbitrary alpha and beta
+        # Warning: this slows down the program drastically due to sums in multiple loops
+        # This is by far the biggest time consuming process in the calculation
+        if return_R_0:
+            ET_E = round(m * (1 - Ep) / Ep)  # E[T_E]
+            total = 0
+            for t_val in range(length):  # run through all possible values of T_E and T_I
+                for s in range(1, t_val + 1):  # sum from 1 up to the value of T_E inclusive
+                    total += alpha(t + s) * neg_bin(t_val, m, Ep)
+                    total += beta(t + ET_E + s) * neg_bin(t_val, n, Ip)
+            R_0.append(total)
+
+        # Estimate R_0 using alpha_int and beta_int as Weibull anti-derivatives or sums up to n
+        # This is faster but needs alpha and beta to be defined in specific ways.
+        # a, b, c, d, e, f = [30.73504421, 2.5255927, 6.15897371, 22.99668146, 1.00000064, 12.86532984]
+        # alpha_int = lambda w: abs(c * math.exp(-(w / a) ** b)) + abs(f * math.exp(-(w / d) ** e))
+        # beta_int = lambda w: 0.2*alpha(w)
+        #
+        # ET_E = round(m * (1 - Ep) / Ep)  # E[T_E]
+        # T_E = np.arange(length)  # Possible values for T_E and T_I to take on in the sum
+        # summand = lambda s: (alpha_int(t) - alpha_int(t + s)) * neg_bin(s, m, Ep) + \
+        #                     (beta_int(t + ET_E) - beta_int(t + ET_E + s)) * neg_bin(s, n, Ip)
+        # R_0.append(np.sum(np.array(list(map(summand, T_E)))))
 
         # Adjust the transition matrix
         P_adjusted = P.copy()
@@ -379,8 +420,12 @@ def get_modelled_time_series(params: Parameters, N0, NR, max_T):
     R = np.array(R) * N
     I_tot = np.array(I_tot) * N
     E_tot = np.array(E_tot) * N
+    R_0 = np.array(R_0)
 
-    return S, E, I, R, I_tot, E_tot
+    if return_R_0:
+        return S, E, I, R, I_tot, E_tot, R_0
+    else:
+        return S, E, I, R, I_tot, E_tot
 
 
 def get_mse(params: Parameters, N0, NR, I_tot_observed):
@@ -394,9 +439,9 @@ def get_mse(params: Parameters, N0, NR, I_tot_observed):
     :param I_tot_observed: The observed total number in the infectious state
     :return: The MSE
     """
-    _, _, _, _, I_tot, E_tot = get_modelled_time_series(params, N0, NR, len(I_tot_observed)+params.offset)
+    _, _, _, _, I_tot, E_tot = get_modelled_time_series(params, N0, NR, len(I_tot_observed) + params.offset, False)
     I_tot = I_tot[params.offset:]
-    mse = np.sum((I_tot - I_tot_observed) ** 2)/len(I_tot_observed)
+    mse = np.sum((I_tot - I_tot_observed) ** 2) / len(I_tot_observed)
     # Note for South Korea, by the number of tests that they are doing,
     # it is best to calculate MSE by E_tot - I_tot_observed
     return mse

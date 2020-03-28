@@ -1,0 +1,10 @@
+R_0(t):
+
+\begin{aligned}
+&R_0(t) =  S(0) \cdot \mathbb{E}[\sum_{x=1}^{T_E} \frac{\alpha(t+x)}{S(t)} + \sum_{x=1}^{T_I} \frac{\beta(t+T_E+x)}{S(t+T_E)}]\\
+& \approx \mathbb{E}[\sum_{x=1}^{T_E} {\alpha(t+x)} + \sum_{x=1}^{T_I} {\beta(t+T_E+x)}]\\
+& \approx \mathbb{E}[\int_{0}^{T_E} {\alpha(t+x)} \text{d}x + \int_{0}^{T_I} {\beta(t+T_E+x)} \text{d}x]\\
+& \approx \mathbb{E}[\int_{0}^{T_E} {\alpha(t+x)} \text{d}x + \int_{0}^{T_I} {\beta(t+\mathbb{E}[T_E]+x)} \text{d}x]\\
+& = \mathbb{E}[A(t+T_E)-A(t) + B(t+\mathbb{E}[T_E]+T_I)-B(t+\mathbb{E}[T_E])]
+\end{aligned}
+

@@ -117,4 +117,4 @@ def insert_worldometer(day):
         database.update_insert(query)
 
 
-insert_worldometer(26)
+insert_worldometer(27)

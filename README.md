@@ -2,6 +2,27 @@
 
 Some multi-stage discrete SEIR modelling of the COVID-19 disease.
 
+
+# Usage and where to go
+
+The first class to go to should be [UseModels.py](UseModels.py).
+This will show you the main uses behind the model.
+
+To understand what the model is doing, go to [Models.py](Models.py).
+It is a fairly big class that both has model parameters and the model itself.
+
+To find good parameters for any new models you want to make of various countries, 
+go to [OptimiseModels.py](OptimiseModels.py).
+
+By the time you become familiar with those, you should have the hang of the way most things are laid out.
+
+It might say that you need the following libraries but you really don't.
+They're for [Communication.py](Communication.py) from which I am only using the Database class.
+```
+yagmail, twilio, keyring, json, smtplib, email, telepot, praw
+```
+
+
 # The model
 
 This project tries to model the COVID population spread using an n-step discrete Markov SEIR model.
@@ -27,7 +48,8 @@ Also, we need to describe the transition rates between these states.
 Say an individual is susceptible at time t. Then the probability that they become exposed at time t+1 could be the 
 proportion of exposed times some factor alpha plus the proportion of infected times some factor beta.
 That is,  ```Pr(S -> E) = E*α + I*β```.
-Both alpha and beta can be functions of t. The probability that they immediately become infected we will say is 0 and 
+Both alpha and beta can be functions of t but I will supress the notation most of the time. 
+The probability that they immediately become infected we will say is 0 and 
 for becoming recovered we set to 0 too. The probability of remaining susceptible is the complement of becoming exposed. 
 We repeat this process for someone who is exposed, infected and recovered and we obtain 16 different probabilities 
 of transitioning between stages. Note that with this, one must also have a probability for transition from exposed 
@@ -49,8 +71,8 @@ proportion) of being in the next state using an equation (called the Chapman-Kom
 ```p(t+1) = p(t)P(t)```. Here the vector p(t) is considered a 1x4 matrix and it is matrix multiplied with the 
 4x4 transition matrix. 
 
-Through this multiplication, it can be seen that the time spent as exposed follows a Geometric distribution with 
-mean 1/Ep and the time spent as infected also follows Geometric with mean 1/Ip. Both of these Geometric distributions count the 
+Through this multiplication, it can be seen that the time spent as exposed (T<sub>E</sub>) follows a Geometric distribution with 
+mean 1/Ep and the time spent as infected (T<sub>I</sub>) also follows Geometric with mean 1/Ip. Both of these Geometric distributions count the 
 number of trials.
 
 Thus, given a state at time 0 and some guesses for alpha, beta, infection probability and recovery probability, 
@@ -69,8 +91,8 @@ P(t) = [0          0          0        1-Ep     Ep       0        0 ] <- E subst
 ```
 
 If we then have a "slide" along the main diagonal of 1-Ep and Ep along the upper diagonal in in the E superstate, 
-we will have that the time spent in the E superstate follows a Negative Binomial distribution that counts 
-the number of trials. The argument is similar for the I superstate. This is not desirable since this means the 
+we will have that the time spent in the E superstate (T<sub>E</sub>) follows a Negative Binomial distribution that counts 
+the number of trials. The argument is similar for the I superstate (T<sub>I</sub>). This is not desirable since this means the 
 minimum number of days spent in E is m. We want a minimum of 0 days. To correct this, say for E, the row above the 
 first substate in E must contain a Binomial PMF with parameters m and Ep. For example where ```C = (E\*α+I\*β)``` we have:
 ```
@@ -86,7 +108,7 @@ P(t) = [0    0          0             1-Ep          Ep(1-Ip)^2  2EpIp(1-Ip)  EpI
 This then gets to the typical Negative Binomial that counts the number of failures.
 
 We then pick values of Ep and Ip that give the desired mean time spent in each group. For COVID, the values that seem 
-to match the best by manual tuning are m = 3, n = 7, mean time in E = 11 days, mean time in I = 20 days. 
+to match the best by manual tuning are m = 3, n = 7, mean time in E = E\[T<sub>E</sub>\] = 11 days, mean time in I = E\[T<sub>I</sub>\] = 20 days. 
 
 This mean time in I matches with articles that say median time in I is about 2 weeks.
 This mean time, however, in E is contrary to articles that say median time in E is 5 days. But this value of 11 days 
@@ -96,7 +118,7 @@ numbers in E instead of I. Then, aligning this with the number of recovered, the
 This is where the model stands now.
 
 
-# Notes and estimation of alpha and beta
+## Notes and estimation of alpha and beta
 
 Alpha is the proportion of newly exposed per proportion of exposed per proportion of susceptible. So alpha can almost be thought of the number of people an exposed person infects per day.
 Beta is the proportion of newly exposed per proportion of infected per proportion of susceptible. So beta can almost be thought of the number of people an infected person infects per day.
@@ -107,6 +129,26 @@ Estimation was done on a per country basis. There was a parametrisation of alpha
 by some constant and then another positive constant is added. The parameters for the Weibull and the constant were then estimated via minimising the MSE. 
 The MSE is calculated by taking the model's predicted number of infected, subtracting that from the observed infected, 
 squaring everything and summing over each time t. The minimising was done via the Nelder-Mead method.
+
+
+## Comments for R<sub>0</sub>
+
+According to Wikipedia, R<sub>0</sub> is the expected number of cases directly generated by one case in a 
+population where all individuals are susceptible to infection. One case refers to a single exposed individual (I assume).
+
+So for this model, we have the following: 
+
+![R_0 formula](Images/R0.png)
+
+Where S(t) is the number of susceptible at time t (with S(0)=N).
+Where A(t) and B(t) are the anti-derivatives of alpha and beta at time t.
+Where T<sub>E</sub> is the time spent in state E and T<sub>I</sub> is the time spent in state I.
+
+In words, R<sub>0</sub> is the expected proportion of newly exposed people due to one exposed individual
+plus the expected remaining proportion of newly exposed people due to one infected individual.
+
+I think the above is a good approximation but I have no way of confirming it.
+
 
 # Pros for the model
 
@@ -120,29 +162,31 @@ squaring everything and summing over each time t. The minimising was done via th
 - This model does not account for deaths and so cannot show off an increased mortality rate when a large proportion of the population is infected at one time.
 - We must assume an incorrect value for the mean exposed time in order to fit the data.
 - The choice for Weibull in alpha and beta implicitly means that groups get progressively less contagious. i.e. Lock down only gets progressively harsher.
-- This model does not account for some of the infected population having being 'imported' from other countries and assumes them to be infected due to internal infection dynamics.
+- This model does not account for some of the infected population having been 'imported' from other countries and assumes them to be infected due to internal infection dynamics.
 
-# Data source
+## Data source
 This dataset was the only one that I could find that has information on recovered.
 If any one can find another that is potentially of better quality, please let me know.
+For now I just have to scrape from Worldometers.
 
-https://data.humdata.org/dataset/novel-coronavirus-2019-ncov-cases
+- https://www.worldometers.info/coronavirus/
+- https://data.humdata.org/dataset/novel-coronavirus-2019-ncov-cases
 
-# Inspiration
+## Inspiration
 Here are some links to get started on the model.
 
-https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
-https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3182455/
-https://www.researchgate.net/publication/334695153_Complete_maximum_likelihood_estimation_for_SEIR_epidemic_models_theoretical_development
+- https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3182455/
+- https://www.researchgate.net/publication/334695153_Complete_maximum_likelihood_estimation_for_SEIR_epidemic_models_theoretical_development
 
 A possibly better model by actual professionals (McKibbin and Fernando):
 
-https://www.brookings.edu/wp-content/uploads/2020/03/20200302_COVID19.pdf
+- https://www.brookings.edu/wp-content/uploads/2020/03/20200302_COVID19.pdf
 
 I'm not too sure on their assumptions because they stated that in the case of a global pandemic, 
 South Korea will have an annual mortality of a minimum of 61 000. 
 This, I doubt, will be the case for them considering they currently have about 10 000 confirmed cases.
 
-# Sources
-https://www.worldometers.info/coronavirus/coronavirus-incubation-period/
-https://www.worldometers.info/coronavirus/coronavirus-symptoms/
+## Sources for incubation and symptom times
+- https://www.worldometers.info/coronavirus/coronavirus-incubation-period/
+- https://www.worldometers.info/coronavirus/coronavirus-symptoms/

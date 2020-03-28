@@ -14,7 +14,7 @@ I_tot_observed, R_tot_observed = get_observed_I_and_R(params.country, params.is_
 
 max_T = 100
 T = np.arange(0, max_T)
-S, E, I, R, I_tot, E_tot = get_modelled_time_series(params, I_tot_observed[0], R_tot_observed[0], max_T)
+S, E, I, R, I_tot, E_tot, R_0 = get_modelled_time_series(params, I_tot_observed[0], R_tot_observed[0], max_T, True)
 
 # Plot everything
 plt.plot(T - params.offset, E_tot, color="orange", label="Cumulative Exposed")

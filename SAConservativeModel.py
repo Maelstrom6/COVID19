@@ -9,14 +9,19 @@ from Models import *
 import matplotlib.pyplot as plt
 import datetime
 from pandas.plotting import register_matplotlib_converters
+import time
 register_matplotlib_converters()
+# plt.style.use('bmh')  # Some customisation for styles of the plot
+# print(plt.style.available)
+
+start_time = time.time()
 
 params = model_SA()
 I_tot_observed, R_tot_observed = get_observed_I_and_R(params.country, params.is_country)
 
 # Apply optimised parameters
 a, b, c, d, e, f = [30.73504421, 2.5255927,  6.15897371, 22.99668146, 1.00000064, 12.86532984]
-# Old using data from 2 days ago shows a much better picture:
+# Old using data from 2 days ago shows a much better picture for SA:
 # a, b, c, d, e, f = [32.76717857, 1.22759355, 7.65017755, 21.02088014, 1.21173884, 9.71998687]
 params.alpha = lambda t: abs(c * b / a * (t / a) ** (b - 1) * math.exp(-(t / a) ** b)) + \
                          abs(f * e / d * (t / d) ** (e - 1) * math.exp(-(t / d) ** e))
@@ -24,11 +29,14 @@ params.beta = lambda t: 0.2 * params.alpha(t)
 
 max_T = 100
 T = np.arange(0, max_T)
-S, E, I, R, I_tot, E_tot = get_modelled_time_series(params, I_tot_observed[0], R_tot_observed[0], max_T)
+S, E, I, R, I_tot, E_tot, R_0 = get_modelled_time_series(params, I_tot_observed[0], R_tot_observed[0], max_T, True)
 
 # Set up a date version of T. Instead of integer indices we have date indices
 base = datetime.datetime(2020, 3, 5)
 dates = np.array([base + datetime.timedelta(days=i) for i in range(0, max_T)])
+
+end_time = time.time()
+print("Time taken:", end_time-start_time)
 
 # Plot everything
 plt.plot(dates - datetime.timedelta(days=params.offset), E_tot, color="orange", label="Cumulative Exposed")
@@ -62,6 +70,7 @@ plt.show()
 
 plt.plot(dates - datetime.timedelta(days=params.offset), list(map(params.alpha, T)), color="orange", label="Alpha")
 plt.plot(dates - datetime.timedelta(days=params.offset), list(map(params.beta, T)), color="red", label="Beta")
+plt.plot(dates - datetime.timedelta(days=params.offset), R_0, color="blue", label="R_0")
 plt.title("Parameter dynamics over time")
 plt.ylabel("Value")
 plt.xlabel("Date")
